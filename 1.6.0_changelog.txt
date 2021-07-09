@@ -1,0 +1,5 @@
+* Inventory download now pulls subcontract inventory separately
+* Inventory download part key file no longer needs the part key, and can use just the part+revision
+  - Existing part key files should still work
+* Supplier release creation no longer keeps existing forecasts
+  - The MRP recommendations will be used for creating forecast releases
