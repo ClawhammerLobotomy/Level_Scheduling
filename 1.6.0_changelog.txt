@@ -3,3 +3,4 @@
   - Existing part key files should still work
 * Supplier release creation no longer keeps existing forecasts
   - The MRP recommendations will be used for creating forecast releases
+* Added "auto update" which downloads the new version if available
