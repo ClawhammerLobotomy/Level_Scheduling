@@ -140,3 +140,4 @@ resources/pcn_config.json
 .vscode/
 
 *.pyc
+compile.bat
