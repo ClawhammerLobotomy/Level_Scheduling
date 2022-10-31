@@ -127,3 +127,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# These are downloaded on the fly
+resources/chrome*
+resources/cumulus*
+resources/config*
+
+# This stores your connection credentials
+resources/pcn_config.json
+
+*.lnk
+.vscode/
+
+*.pyc
