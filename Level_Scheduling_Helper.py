@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.7'
+__version__ = '2.3.8'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -164,7 +164,9 @@ __status__ = 'Production'
 # 8/29/2022 Updated all df.append commands with pd.concat([df_1, df_2]) format
 # 2.3.7
 # 10/31/2022 Updated PRP download to use data source calls
-
+# 2.3.8
+# 11/11/2022 Updated PCN values to reflect the change from Magnode to Shape - Aluminum
+# TODO Verify the pcn.json company name matches what Plex used.
 
 def folder_setup(source_folder):
     """
@@ -207,7 +209,12 @@ ux = UDST.UX_Data_Sources() # Static
 bundle_dir = frozen_check()
 master_file_dir = 'H:\\OP-ShapeGlobal\\0708-IT\\Public\\Level Scheduling\\'\
                   'Source_Files'
-pcn_file = Path(os.path.join(bundle_dir,'resources/pcn.json'))
+
+# Local
+pcn_file_1 = Path(os.path.join(bundle_dir,'resources/pcn.json'))
+
+# Network
+pcn_file = Path(os.path.join(master_file_dir, 'pcn.json'))
 
 # Local
 subcon_location_file_l = Path(os.path.join(bundle_dir,
@@ -241,6 +248,7 @@ if not Path(master_file_dir).is_dir():
     mrp_location_file = mrp_location_file_l
     pcn_config_file = pcn_config_file_l
     subcon_location_file = subcon_location_file_l
+    pcn_file = pcn_file_1
 
 
 
@@ -3243,7 +3251,7 @@ options = ["Grand Haven",
     "Mexico",
     "Kunshan",
     "Guangzhou",
-    "Magnode"]
+    "Trenton"]
 launch_pcn = ttk.OptionMenu(tabs["frame_1"], clicked, pcn_get()[0], *options,
                             command=pcn_changed)
 db_frame = Frame(tabs["frame_1"])
