@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.8'
+__version__ = '2.3.9'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -167,6 +167,9 @@ __status__ = 'Production'
 # 2.3.8
 # 11/11/2022 Updated PCN values to reflect the change from Magnode to Shape - Aluminum
 # TODO Verify the pcn.json company name matches what Plex used.
+# 2.3.9
+# 12/14/2022 Fixed issue with float release balances in the release cleanup
+#            Reverted change to PCN.json since the name has not changed yet
 
 def folder_setup(source_folder):
     """
@@ -994,7 +997,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     forecast_update = launch_pcn_dict[home_pcn]["forecast"]
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file, legacy_login=0)
+                use_config=False, pcn_path=pcn_file, legacy_login=0, cumulus=0)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     plex.frozen_check()
@@ -1201,7 +1204,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
                                     'select[id^="lstRelease_Status"]');
             for (var i=0,max=rcv_qty.length; i<max;i++){
                 if(rcv_qty[i].innerText != "0"){
-                    qty[i].value = parseInt(
+                    qty[i].value = parseFloat(
                                 rcv_qty[i].innerText.replace(",", ""))
                     qty[i].onblur()
                     rel_status[i].value = "Received"
