@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.9'
+__version__ = '2.3.10'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -170,6 +170,9 @@ __status__ = 'Production'
 # 2.3.9
 # 12/14/2022 Fixed issue with float release balances in the release cleanup
 #            Reverted change to PCN.json since the name has not changed yet
+# 2.3.10
+# 2/2/2023  Added support for variable number of weeks of firm releases
+
 
 def folder_setup(source_folder):
     """
@@ -206,6 +209,22 @@ def frozen_check():
     return bundle_dir
 
 
+def config_setup():
+    # config_path = Path(os.path.join(bundle_dir,'resources','config.ini'))
+    # Path(os.getcwd()).parent.absolute()
+    config_path = Path(os.path.join(os.getcwd(),'config.ini'))
+    config = configparser.ConfigParser()
+    config = configparser.ConfigParser()
+    if not config_path.is_file():
+        config['Plex'] = {}
+        config['Plex']['number_of_weeks'] = '1'
+        with open(config_path, 'w+') as configfile:
+            config.write(configfile)
+    config.read(config_path)
+    daily_release_weeks = config['Plex']['number_of_weeks']
+    return daily_release_weeks
+
+
 global bundle_dir
 ux = UDST.UX_Data_Sources() # Static
 
@@ -213,8 +232,10 @@ bundle_dir = frozen_check()
 master_file_dir = 'H:\\OP-ShapeGlobal\\0708-IT\\Public\\Level Scheduling\\'\
                   'Source_Files'
 
+daily_release_weeks = config_setup()
+
 # Local
-pcn_file_1 = Path(os.path.join(bundle_dir,'resources/pcn.json'))
+pcn_file_l = Path(os.path.join(bundle_dir,'resources/pcn.json'))
 
 # Network
 pcn_file = Path(os.path.join(master_file_dir, 'pcn.json'))
@@ -251,7 +272,7 @@ if not Path(master_file_dir).is_dir():
     mrp_location_file = mrp_location_file_l
     pcn_config_file = pcn_config_file_l
     subcon_location_file = subcon_location_file_l
-    pcn_file = pcn_file_1
+    pcn_file = pcn_file_l
 
 
 
@@ -2429,8 +2450,10 @@ def api_customer_release_get_v2(authentication, db, home_pcn, input_file):
     week_grouped_releases = [(*k, sum(t[4] for t in g))
             for k,g in groupby(release_list, 
                         operator.itemgetter(2, 0, 1))]
+    daily_release_weeks = config_setup()
+    firm_range = [*range(daily_release_weeks)]
     week_grouped_releases = [list(ele) for ele in 
-                    week_grouped_releases if ele[1] != 0]
+                    week_grouped_releases if ele[1] not in  firm_range] 
     # print("List of releases grouped by week's Monday")
     # pprint(week_grouped_releases)
 
