@@ -209,19 +209,19 @@ def frozen_check():
     return bundle_dir
 
 
-def config_setup():
+def config_setup(weeks):
     # config_path = Path(os.path.join(bundle_dir,'resources','config.ini'))
     # Path(os.getcwd()).parent.absolute()
-    config_path = Path(os.path.join(os.getcwd(),'config.ini'))
+    config_path = Path(os.path.join(os.getcwd(),'user_config.ini'))
     config = configparser.ConfigParser()
     config = configparser.ConfigParser()
     if not config_path.is_file():
         config['Plex'] = {}
-        config['Plex']['number_of_weeks'] = '1'
+        config['Plex']['number_of_weeks_for_daily_cust_demand'] = weeks
         with open(config_path, 'w+') as configfile:
             config.write(configfile)
     config.read(config_path)
-    daily_release_weeks = config['Plex']['number_of_weeks']
+    daily_release_weeks = config['Plex']['number_of_weeks_for_daily_cust_demand']
     return daily_release_weeks
 
 
@@ -232,7 +232,7 @@ bundle_dir = frozen_check()
 master_file_dir = 'H:\\OP-ShapeGlobal\\0708-IT\\Public\\Level Scheduling\\'\
                   'Source_Files'
 
-daily_release_weeks = config_setup()
+
 
 # Local
 pcn_file_l = Path(os.path.join(bundle_dir,'resources/pcn.json'))
@@ -2450,7 +2450,7 @@ def api_customer_release_get_v2(authentication, db, home_pcn, input_file):
     week_grouped_releases = [(*k, sum(t[4] for t in g))
             for k,g in groupby(release_list, 
                         operator.itemgetter(2, 0, 1))]
-    daily_release_weeks = config_setup()
+    daily_release_weeks = config_setup(launch_pcn_dict[pcn_get()[0]]['default_week_no'])
     firm_range = [*range(daily_release_weeks)]
     week_grouped_releases = [list(ele) for ele in 
                     week_grouped_releases if ele[1] not in  firm_range] 
@@ -3278,6 +3278,7 @@ options = ["Grand Haven",
     "Kunshan",
     "Guangzhou",
     "Trenton"]
+daily_release_weeks = config_setup(launch_pcn_dict[pcn_get()[0]]['default_week_no'])
 launch_pcn = ttk.OptionMenu(tabs["frame_1"], clicked, pcn_get()[0], *options,
                             command=pcn_changed)
 db_frame = Frame(tabs["frame_1"])
