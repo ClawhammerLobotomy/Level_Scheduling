@@ -144,3 +144,4 @@ resources/pcn_config.json
 
 *.pyc
 compile.bat
+user_config.ini
