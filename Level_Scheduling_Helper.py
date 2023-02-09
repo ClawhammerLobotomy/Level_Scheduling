@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.10'
+__version__ = '2.3.11'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -172,7 +172,10 @@ __status__ = 'Production'
 #            Reverted change to PCN.json since the name has not changed yet
 # 2.3.10
 # 2/2/2023  Added support for variable number of weeks of firm releases
-
+# 2.3.11
+# 2/9/2023  Fixed issue with string default in config file
+# Added functionality to copy network config files each time they are available
+# to keep local files current without needing new revisions each time.
 
 def folder_setup(source_folder):
     """
@@ -265,14 +268,34 @@ pcn_config_file_l = Path(os.path.join(bundle_dir,
 pcn_config_file = Path(os.path.join(master_file_dir,
                             'pcn_config.json'))
 
-# try:
+
+def local_file_update():
+    """
+    Updates the local file version to match with the network.
+    """
+    file_list = [
+        'pcn.json',
+        'pcn_config.json',
+        'container_statuses.csv',
+        'mrp_excluded_locations.csv',
+        'mrp_locations.csv',
+        'subcon_locations.csv'
+    ]
+    for x in file_list:
+        src = Path(os.path.join(master_file_dir, x))
+        dst = Path(os.path.join(bundle_dir,'resources', x))
+        copyfile(src, dst)
+    return
+
+
 if not Path(master_file_dir).is_dir():
-# except FileNotFoundError:
     container_status_file = container_status_file_l
     mrp_location_file = mrp_location_file_l
     pcn_config_file = pcn_config_file_l
     subcon_location_file = subcon_location_file_l
     pcn_file = pcn_file_l
+else:
+    local_file_update()
 
 
 
