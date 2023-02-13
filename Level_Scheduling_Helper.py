@@ -2460,8 +2460,10 @@ def api_customer_release_get_v2(authentication, db, home_pcn, input_file):
         release_list[x].insert(1,
             group_start_date.strftime("%#m/%#d/%y"))
     # print(release_list)
+    daily_release_weeks = config_setup(launch_pcn_dict[pcn_get()[0]]['default_week_no'])
+    firm_range = [*range(int(daily_release_weeks))]
     current_week_rel = [i for i in release_list if 
-                        i[0] == 0]
+                        i[0] in firm_range]
     # print(current_week_rel)
     # Removes the "monday" value since it isn't needed for current week
     # This awkward list splitting is to keep the API download
@@ -2473,8 +2475,7 @@ def api_customer_release_get_v2(authentication, db, home_pcn, input_file):
     week_grouped_releases = [(*k, sum(t[4] for t in g))
             for k,g in groupby(release_list, 
                         operator.itemgetter(2, 0, 1))]
-    daily_release_weeks = config_setup(launch_pcn_dict[pcn_get()[0]]['default_week_no'])
-    firm_range = [*range(daily_release_weeks)]
+    
     week_grouped_releases = [list(ele) for ele in 
                     week_grouped_releases if ele[1] not in  firm_range] 
     # print("List of releases grouped by week's Monday")
