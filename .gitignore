@@ -132,6 +132,7 @@ dmypy.json
 resources/chrome*
 resources/cumulus*
 resources/config*
+resources/LICENSE.chromedriver
 
 # Troubleshooting files
 troubleshooting/

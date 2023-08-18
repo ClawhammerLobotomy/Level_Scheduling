@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.11'
+__version__ = '2.3.17'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -176,6 +176,19 @@ __status__ = 'Production'
 # 2/9/2023  Fixed issue with string default in config file
 # Added functionality to copy network config files each time they are available
 # to keep local files current without needing new revisions each time.
+# 6/29/2023 Fixed function name call in prp download
+# 2.3.15
+# 7/31/2023
+# fix to issue with google not having the latest chromedriver available for the latest chrome browser
+# now downloading the latest available stable version for base chrome version
+# updated to selenium 4.10 which depricates find_element_by_*****
+# replaced instances of this
+# 2.3.17
+# 8/18/2023
+# fix to issue with mrp recommendations not getting added
+# Needed to include the part_operation_key URL parameter
+# without this, parts which had receiving inspections were doubling the 
+# PO release quantities, and the recommendations were not showing at all.
 
 def folder_setup(source_folder):
     """
@@ -344,6 +357,13 @@ except FileNotFoundError:
           ,'folder and re-launch this app to get the latest source data.')
     latest_version = __version__
     update = 0
+
+try:
+    chromedriver_override = Path(os.path.join(master_file_dir,
+                          'chromedriver_override.txt')).read_text()
+    print(f"Using chromedriver_version {chromedriver_override}")
+except FileNotFoundError:
+    chromedriver_override = None
 
 
 def version_check():
@@ -665,7 +685,7 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
         def do_release_update():
             # ======Start of required code======#
             # Call the chrome driver download function
-            plex.download_chrome_driver()
+            plex.download_chrome_driver(chromedriver_override)
             # Call the config function to initialize the file and set variables
             plex.config()
             # Call the login function and return the chromedriver instance 
@@ -929,12 +949,12 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
                     #                     new_date=new_forecasts[i][0])
                     #         driver.execute_script(script)
                     # 12. Add notes for time and date that it was updated
-                    qtys = driver.find_elements_by_xpath(
+                    qtys = driver.find_elements(By.XPATH,
                                             '//input[starts-with(@id, '
                                             '"txttxtQuantity")]')
                     full_qty = [rel for i, rel in enumerate(qtys)
                                 if rel.get_attribute('value') != '']
-                    notes = driver.find_elements_by_xpath(
+                    notes = driver.find_elements(By.XPATH,
                                             '//input[starts-with(@id, '
                                             '"txtRelease_Note")]')
                     full_note = [rel for i, rel in enumerate(notes)]
@@ -974,8 +994,8 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
                     var x = document.evaluate(
                         '/html/body/div[1]/form/table/tbody/tr['+i+']/td[3]',
                         document,null,9,null).singleNodeValue.innerText
-                    var qty = parseInt(x.split("\\n")[0].replace(",",""))
-                    var stat = x.split("\\n")[1]
+                    var qty = parseInt(x.split(/\n|\\n/)[0].replace(",",""))
+                    var stat = x.split(/\n|\\n/)[1]
                     on_order_qty.push(qty)
                     on_order_stat.push(stat)}}
 
@@ -1047,7 +1067,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     plex.frozen_check()
     # ======Start of required code======#
     # Call the chrome driver download function
-    plex.download_chrome_driver()
+    plex.download_chrome_driver(chromedriver_override)
     # Call the config function to initialize the file and set variables
     plex.config()
     # Call the login function and return the chromedriver instance 
@@ -1322,12 +1342,12 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             #                     new_date=new_forecasts[i][0])
             #         driver.execute_script(script)
             # 12. Add notes for time and date that it was updated
-            qtys = driver.find_elements_by_xpath(
+            qtys = driver.find_elements(By.XPATH,
                                     '//input[starts-with(@id, '
                                     '"txttxtQuantity")]')
             full_qty = [rel for i, rel in enumerate(qtys)
                         if rel.get_attribute('value') != '']
-            notes = driver.find_elements_by_xpath(
+            notes = driver.find_elements(By.XPATH,
                                     '//input[starts-with(@id, '
                                     '"txtRelease_Note")]')
             full_note = [rel for i, rel in enumerate(notes)]
@@ -1354,7 +1374,8 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             driver.get(f'{url_comb}/requirements_planning'
                     f'/Release_Planning_By_Supplier_Schedule_Form.asp'
                     f'?Mode=Part'
-                    f'&Part_Key={part_key}')
+                    f'&Part_Key={part_key}'
+                    f'&Part_Operation_Key={op_key}')
             # 15. Get lists of relevant elements on screen
             # 15a. Get checkboxes
             script = """
@@ -1834,7 +1855,7 @@ def plex_inventory_get(user_name, password, company_code, db, home_pcn,
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     plex.frozen_check()
-    plex.download_chrome_driver()
+    plex.download_chrome_driver(chromedriver_override)
             # Call the config function to initialize the file and set variables
     plex.config()
     # Call the login function and return the chromedriver instance and
@@ -2125,7 +2146,7 @@ def plex_customer_release_get(user_name, password, company_code, db, home_pcn,
     # global driver
     # ======Start of required code======#
     # Call the chrome driver download function
-    plex.download_chrome_driver()
+    plex.download_chrome_driver(chromedriver_override)
     # Call the config function to initialize the file and set variables
     plex.config()
     # Call the login function and return the chromedriver instance and
@@ -2869,7 +2890,7 @@ def prp_get_api(authentication, db, home_pcn, input_file):
     total_parts = len(part_list)
     prp_list = []
     today = date.today()
-    ed = ux.plex_date_formater(today, date_offset=56)
+    ed = ux.plex_date_formatter(today, date_offset=56)
 
     # Create Query string for part keys
     for i, (key,item) in enumerate(part_key_dict.items()):
@@ -3003,7 +3024,7 @@ def prp_get_plex(u, p, c, pcn, db, home_pcn, parts_file):
     plex = Plex('UX', u, p, c, pcn, db=db, use_config=False,
                 pcn_path=pcn_file, cumulus=0)
     plex.frozen_check()
-    plex.download_chrome_driver()
+    plex.download_chrome_driver(chromedriver_override)
     plex.config()
     driver, url_comb, url_token = plex.login()
     # logger = plex.setup_logger('PRP Download')
