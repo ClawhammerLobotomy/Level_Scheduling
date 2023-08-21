@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.17'
+__version__ = '2.3.18'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -1416,6 +1416,10 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             var note = document.querySelectorAll(
                 'input[id^="txtNote"]')
 
+            // Grab all PO dropdown elements
+            var po_no = document.querySelectorAll(
+                'select[id^="lstPO"]')
+
             // If order qty!= suggested order qty 
             // AND statuses are not firm, planned, or partial, 
             // then check the box and add a note
@@ -1425,11 +1429,12 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
                 sug_order_stat[i] != "Firm" && 
                 sug_order_stat[i] != "Planned" && 
                 on_order_qty[i] != sug_order_qty[i]){{
+            po_no[i].value = "{line_key}"
             check[i].checked = true
             note[i].value = "MRP recommendation updated by "+
                             "{user_name} on {rel_date}"
             }}}}
-            """.format(user_name=user_name,rel_date=rel_date)
+            """.format(user_name=user_name,rel_date=rel_date,line_key=line_key)
             driver.execute_script(script)
             # 16. Create suggested forecast releases.
             #     (Click create button)
