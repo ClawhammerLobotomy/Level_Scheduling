@@ -686,9 +686,9 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
         pcn = launch_pcn_dict[home_pcn]["pcn"]
         file_prefix = launch_pcn_dict[home_pcn]["prefix"]
         plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                    use_config=False, pcn_path=pcn_file)
+                    use_config=False, pcn_path=pcn_file, chromedriver_override=chromedriver_override)
         # Get the directory that script is running in
-        plex.frozen_check()
+        # plex.frozen_check()
         # bundle_dir = plex.frozen_check()
 
 
@@ -710,15 +710,15 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     forecast_update = launch_pcn_dict[home_pcn]["forecast"]
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file)
+                use_config=False, pcn_path=pcn_file, chromedriver_override=chromedriver_override)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
-    plex.frozen_check()
+    # plex.frozen_check()
     # ======Start of required code======#
     # Call the chrome driver download function
-    plex.download_chrome_driver(chromedriver_override)
+    # plex.download_chrome_driver(chromedriver_override)
     # Call the config function to initialize the file and set variables
-    plex.config()
+    # plex.config()
     # Call the login function and return the chromedriver instance 
     #   and base URL used in the rest of the script
     try:
@@ -1475,13 +1475,13 @@ def plex_inventory_get(user_name, password, company_code, db, home_pcn,
     pcn = launch_pcn_dict[home_pcn]["pcn"]
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file)
+                use_config=False, pcn_path=pcn_file, chromedriver_override=chromedriver_override)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
-    plex.frozen_check()
-    plex.download_chrome_driver(chromedriver_override)
-            # Call the config function to initialize the file and set variables
-    plex.config()
+    # plex.frozen_check()
+    # plex.download_chrome_driver(chromedriver_override)
+    # Call the config function to initialize the file and set variables
+    # plex.config()
     # Call the login function and return the chromedriver instance and
     #   base URL used in the rest of the script
     try:
@@ -1762,16 +1762,16 @@ def plex_customer_release_get(user_name, password, company_code, db, home_pcn,
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     # pcn = home_PCN      # enter pcn number
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file)
+                use_config=False, pcn_path=pcn_file, chromedriver_override=chromedriver_override)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
-    plex.frozen_check()
+    # plex.frozen_check()
     # global driver
     # ======Start of required code======#
     # Call the chrome driver download function
-    plex.download_chrome_driver(chromedriver_override)
+    # plex.download_chrome_driver(chromedriver_override)
     # Call the config function to initialize the file and set variables
-    plex.config()
+    # plex.config()
     # Call the login function and return the chromedriver instance and
     #   base URL used in the rest of the script
     try:
@@ -2644,10 +2644,10 @@ def prp_get_api(authentication, db, home_pcn, input_file):
 def prp_get_plex(u, p, c, pcn, db, home_pcn, parts_file):
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     plex = Plex('UX', u, p, c, pcn, db=db, use_config=False,
-                pcn_path=pcn_file)
-    plex.frozen_check()
-    plex.download_chrome_driver(chromedriver_override)
-    plex.config()
+                pcn_path=pcn_file, chromedriver_override=chromedriver_override)
+    # plex.frozen_check()
+    # plex.download_chrome_driver(chromedriver_override)
+    # plex.config()
     driver, url_comb, url_token = plex.login()
     # logger = plex.setup_logger('PRP Download')
     plex.switch_pcn(pcn)
