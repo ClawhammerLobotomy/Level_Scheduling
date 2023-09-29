@@ -1,4 +1,4 @@
-from plex_login_ux import Plex
+from plex_login_ux import Plex, LoginError
 import ux_data_source_tools as UDST
 from requests import auth
 # from requests import auth
@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.18'
+__version__ = '2.3.19'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -189,6 +189,17 @@ __status__ = 'Production'
 # Needed to include the part_operation_key URL parameter
 # without this, parts which had receiving inspections were doubling the 
 # PO release quantities, and the recommendations were not showing at all.
+# 2.3.19
+# 9/5/2023
+# Added validation check for the input file to check if all the data is present
+# Records the part numbers with missing data and prints/alerts that there is missing data to review
+# 9/29/2023
+# Updated login functions to remove deprecated kwargs in Plex class
+# Updated login functions to use new LoginError class
+
+class MissingInputData(Exception):
+    pass
+
 
 def folder_setup(source_folder):
     """
@@ -675,375 +686,13 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
         pcn = launch_pcn_dict[home_pcn]["pcn"]
         file_prefix = launch_pcn_dict[home_pcn]["prefix"]
         plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                    use_config=False, pcn_path=pcn_file, legacy_login=0)
+                    use_config=False, pcn_path=pcn_file)
         # Get the directory that script is running in
         plex.frozen_check()
         # bundle_dir = plex.frozen_check()
 
 
         # Main function which performs all the Plex manipulation
-        def do_release_update():
-            # ======Start of required code======#
-            # Call the chrome driver download function
-            plex.download_chrome_driver(chromedriver_override)
-            # Call the config function to initialize the file and set variables
-            plex.config()
-            # Call the login function and return the chromedriver instance 
-            #   and base URL used in the rest of the script
-            try:
-                driver, url_comb, url_token = plex.login(headless=1)
-                url_token = url_token
-            except SystemExit:
-                status.config(text="Username, Password, or "
-                              "Company code incorrect."
-                              " Please verify and try again.")
-                tab_control.select(0)
-                plex.driver.quit()
-                return
-            # ======End of required code======#
-            file = input_file
-            total_lines = len(open(input_file).readlines()) - 1
-            part_po_grouping = defaultdict(list)
-            # 1. Group the CSV into lists based on PO and part combination
-            #    Will group the file into arrays based on the first X columns.
-            with open(file, 'r', encoding="utf-8") as fin:
-                csv_reader = csv.reader(fin, delimiter=',')
-                for i, row in enumerate(csv_reader):
-                    if i == 0:
-                        column_dict = {}
-                        for x, i in enumerate(row):
-                            column_dict[i] = x
-                            print(x, i)
-                        print(column_dict)
-                    else:
-                        part_po_grouping[row[0], row[1], row[2], row[3],
-                                        row[4], row[5], row[6]].append(row[7:])
-                print(part_po_grouping)
-                # 2. For each group, go to the PO line and perform actions
-                for j, line in enumerate(part_po_grouping):
-                    # print(line[0], line[1], line[2], line[3], line[4])
-                    # pprint(part_po_grouping[line])
-                    print(line)
-                    date_qty_set = []
-                    for x in part_po_grouping[line]:
-                        date_qty_set.append(x[0:2])
-                        part_no = x[3]
-                    pcn_no = line[0] # pylint: disable=unused-variable
-                    po_key = line[1]
-                    line_key = line[2]
-                    line_no = line[3]
-                    supplier_no = line[4]
-                    part_key = line[5]
-                    op_key = line[6] # pylint: disable=unused-variable
-                    if {"Release_Status"} <= column_dict.keys():
-                        x = column_dict["Release_Status"]
-                        release_status = part_po_grouping[x]
-                        print(release_status)
-                    # pprint(date_qty_set)
-                    num_parts = len(part_po_grouping)
-                    try:
-                        status.config(text=f"Updating part {part_no}.    "
-                                           f"[{j + 1}/{num_parts}]")
-                    except RuntimeError:
-                        driver.quit()
-                    driver.get(f'{url_comb}/Purchasing/Line_Item_Form.asp?'
-                            f'CameFrom=PO%2Easp'
-                            f'&Supplier_No={supplier_no}'
-                            f'&Do=Update&PO_Key={po_key}'
-                            f'&Line_Item_Key={line_key}'
-                            f'&Line_Item_No={line_no}'
-                            f'&Print_Button_Pressed=False&ssAction=Same')
-                    # time.sleep(10000)
-                    # 3a. Get list of release quantities
-                    script = """
-                    a =[]
-                    var qty = document.querySelectorAll(
-                                                'input[id^="txttxtQuantity"]');
-                    for (var i=0,max=qty.length; i<max;i++){
-                        if(qty[i].value)
-                            a.push(qty[i].value.replace(',',''))
-                    }
-                    return a
-                    """
-                    rel_qty = driver.execute_script(script)
-                    # print(rel_qty)
-
-                    # 3b. Get a list of all release dates
-                    script = """
-                    b =[]
-                    var dates = document.querySelectorAll(
-                                                   'input[id^="txtDue_Date"]');
-                    for (var i=0,max=dates.length; i<max;i++){
-                        if(dates[i].value)
-                            b.push(dates[i].value)
-                    }
-                    return b
-                    """
-                    rel_date = driver.execute_script(script)
-                    # print(rel_date)
-
-                    # 3c. Get a list of all release statuses
-                    script = """
-                        a =[]
-                    var qty = document.querySelectorAll(
-                                                'input[id^="txttxtQuantity"]');
-                    for (var i=0,max=qty.length; i<max;i++){
-                        if(qty[i].value)
-                            a.push(qty[i].value)
-                    }
-                    c =[]
-                    var rel_status = document.querySelectorAll(
-                                            'select[id^="lstRelease_Status"]');
-                    for (var i=0,max=rel_status.length; i<max;i++){
-                        if(rel_status[i].value && a[i])
-                                //need to check against the quantity value
-                                //to make the array length even
-                            c.push(rel_status[i].value)
-                    }
-                    return c
-                    """
-                    rel_status = driver.execute_script(script)
-                    # print(rel_status)
-
-                    # 3d. Zip ABC arrays into list for comparison
-                    release_list = [list(a) for a in zip(rel_date, rel_qty,
-                                                         rel_status)]
-                    # print('Current Releases')
-                    # pprint(release_list)
-                    # print('')
-                    # time.sleep(100000)
-                    # 4. Separate out forecast releases
-                    forecasts =[line for i, line in enumerate(release_list)
-                                if 'Forecast' in line]
-                    # print('Old Forecasts')
-                    # pprint(forecasts)
-                    cut_index = 0
-                    for i, line in enumerate(forecasts):
-                        # 5. Compare forecasts with date_qty_set
-                        for j, x in enumerate(date_qty_set): # pylint: disable=unused-variable
-                            # print('Forecast to compare')
-                            # print(line)
-                            # print('Firm to compare')
-                            # print(x)
-                            if datetime.strptime(line[0], '%m/%d/%y') <=\
-                                    datetime.strptime(x[0], '%m/%d/%Y'):
-                                # print(line[0], '<=', x[0])
-                                # 6. Remove forecasts if they are before any
-                                #    date in the csv list
-                                cut_index += 1
-                                # new_forecasts = forecasts[i+1:]
-                                # forecasts = forecasts[i+1:]
-                                break
-                            # else:
-                            #     new_forecasts = forecasts
-                    new_forecasts = forecasts[cut_index:]
-                    # print('New forecast Releases')
-                    # pprint(new_forecasts)
-                    # print('New original forecasts')
-                    # pprint(forecasts)
-                    # time.sleep(100000)
-                    # 7. Clear all release info for forecast releases
-                    # 7a. Change status to firm
-                    script = """
-                    a =[]
-                    var qty = document.querySelectorAll(
-                                                'input[id^="txttxtQuantity"]');
-                    for (var i=0,max=qty.length; i<max;i++){
-                        if(qty[i].value)
-                            a.push(qty[i].value)
-                    }
-                    b =[]
-                    var dates = document.querySelectorAll(
-                                                   'input[id^="txtDue_Date"]');
-                    for (var i=0,max=dates.length; i<max;i++){
-                        if(dates[i].value)
-                            b.push(dates[i].value)
-                    var rel_status = document.querySelectorAll(
-                                            'select[id^="lstRelease_Status"]');
-                    for (var i=0,max=rel_status.length; i<max;i++){
-                        //if(rel_status[i].value == 'Forecast'){
-                            rel_status[i].value = 'Firm'
-                            qty[i].value = ''
-                            dates[i].value = ''}
-                    //}
-                    }"""
-                    driver.execute_script(script)
-                    # 8. Close partial releases.
-                    script = """
-                    var u = []
-                    var rcv_qty = document.querySelectorAll(
-                                                'span[id="Receipt_Quantity"]');
-                    var qty = document.querySelectorAll(
-                                                'input[id^="txttxtQuantity"]');
-                    var rel_status = document.querySelectorAll(
-                                            'select[id^="lstRelease_Status"]');
-                    for (var i=0,max=rcv_qty.length; i<max;i++){
-                        if(rcv_qty[i].innerText != "0"){
-                            qty[i].value = parseInt(
-                                        rcv_qty[i].innerText.replace(",", ""))
-                            qty[i].onblur()
-                            rel_status[i].value = "Received"
-                            u.push(qty[i].value)
-                            }
-                        }
-                    return u.length
-                    """
-                    partials = driver.execute_script(script)
-                    # time.sleep(100000)
-                    partials += 0
-                    rel_index = 0
-                    # 9. Update releases using CSV data
-                    # if the release quantity is 0, then skip it.
-                    # for some reason, Plex stores 0 qty releases.
-                    for i, release in enumerate(date_qty_set):
-                        if release[1] == '0':
-                            continue
-                        # print(i, partials, release[1], release[0])
-                        # time.sleep(10000)
-                        script = """
-                        var qty = document.querySelectorAll(
-                                                'input[id^="txttxtQuantity"]');
-                        var dates = document.querySelectorAll(
-                                                   'input[id^="txtDue_Date"]');
-                        qty[{i}+{partials}].value = {new_qty}
-                        dates[{i}+{partials}].value = "{new_date}"
-                        """.format(i=rel_index, partials=partials, 
-                                   new_qty=release[1],
-                                   new_date=release[0])
-                        driver.execute_script(script)
-                        rel_index += 1
-                    # time.sleep(10000)
-                    # 6/28/21
-                    # No longer keeping existing forecast releases
-                    # # 10. find the last empty release line
-                    # status_index = driver.find_elements_by_xpath(
-                    #                     '//select[starts-with(@id, '
-                    #                     '"lstRelease_Status")]')
-                    # qtys = driver.find_elements_by_xpath(
-                    #                         '//input[starts-with(@id, '
-                    #                         '"txttxtQuantity")]')
-                    # full_qty = [rel.get_attribute('value') for i, rel in 
-                    #             enumerate(qtys)]
-                    # empty_rel = [rel for i, rel in enumerate(qtys)
-                    #             if rel.get_attribute('value') == '']
-                    # status_qty = [list(a) for a in zip(status_index, full_qty)]
-                    # # pprint(status_qty)
-                    # forecast_index = [i for i, rel in enumerate(status_qty)
-                    #                 if rel[1] == '']
-                    # # pprint(forecast_index)
-                    # # 11. Start populating the forecast release data using
-                    # for i, rel in enumerate(empty_rel):
-                    #     if i < len(new_forecasts):
-                    #         script = """
-                    #             var qty = document.querySelectorAll(
-                    #                             'input[id^="txttxtQuantity"]');
-                    #             var dates = document.querySelectorAll(
-                    #                                'input[id^="txtDue_Date"]');
-                    #             var stat = document.querySelectorAll(
-                    #                         'select[id^="lstRelease_Status"]');
-                    #             qty[{x}].value = {new_qty}
-                    #             dates[{x}].value = "{new_date}"
-                    #             stat[{x}].value = "Forecast"
-                    #             """.format(x=forecast_index[i],
-                    #                     new_qty=new_forecasts[i][1],
-                    #                     new_date=new_forecasts[i][0])
-                    #         driver.execute_script(script)
-                    # 12. Add notes for time and date that it was updated
-                    qtys = driver.find_elements(By.XPATH,
-                                            '//input[starts-with(@id, '
-                                            '"txttxtQuantity")]')
-                    full_qty = [rel for i, rel in enumerate(qtys)
-                                if rel.get_attribute('value') != '']
-                    notes = driver.find_elements(By.XPATH,
-                                            '//input[starts-with(@id, '
-                                            '"txtRelease_Note")]')
-                    full_note = [rel for i, rel in enumerate(notes)]
-                    full_note = full_note[:len(full_qty)]
-                    now = datetime.now()
-                    rel_date = now.strftime("%m/%d/%y %I:%M:%S %p")
-                    update_note = f'Updated by {user_name} on {rel_date}'
-                    for i, rel in enumerate(full_note):
-                        script = """
-                        var note = document.querySelectorAll(
-                                               'input[id^="txtRelease_Note"]');
-                        note[{i}].value = "{update_note}"
-                        """.format(i=i, update_note=update_note)
-                        driver.execute_script(script)
-                    # time.sleep(10000)
-                    # 13. Click update button
-                    # Changed to JS function to work when minimized
-                    driver.execute_script("FormSubmitStart('Update');")
-                    # time.sleep(10000)
-                    # 14. Go to MRP recommendations
-                    driver.get(f'{url_comb}/requirements_planning'
-                            f'/Release_Planning_By_Supplier_Schedule_Form.asp'
-                            f'?Mode=Part'
-                            f'&Part_Key={part_key}')
-                    # 15. Get lists of relevant elements on screen
-                    # 15a. Get checkboxes
-                    script = """
-                    // Grab all checkbox elements
-                    var check = document.querySelectorAll(
-                        'input[id^="chkCreate_Release"]') 
-
-                    // Grab all on order elements
-                    var on_order_qty = []
-                    var on_order_stat = []
-                    // Xpath starts at 1 needs to go 1 longer than array length
-                    for(var i=1;i<check.length+1;i++){{
-                    var x = document.evaluate(
-                        '/html/body/div[1]/form/table/tbody/tr['+i+']/td[3]',
-                        document,null,9,null).singleNodeValue.innerText
-                    var qty = parseInt(x.split(/\n|\\n/)[0].replace(",",""))
-                    var stat = x.split(/\n|\\n/)[1]
-                    on_order_qty.push(qty)
-                    on_order_stat.push(stat)}}
-
-                    // Grab all suggested Order Elements
-                    var sug_order_qty = []
-                    for(var i=0;i<check.length;i++){{
-                    var x = document.querySelectorAll(
-                        'input[id^="txtQuantity"]')[i].value
-                    sug_order_qty.push(parseInt(x))}}
-                    // sug_order_qty
-
-                    // Grab all suggested order status elements
-                    var sug_order_stat = []
-                    for(var i=0;i<check.length;i++){{
-                    var x = document.querySelectorAll(
-                        'select[id^="lstRelease_Status"]')[i].value
-                    sug_order_stat.push(x)}}
-                    // sug_order_stat
-
-                    // Grab all note field elements
-                    var note = document.querySelectorAll(
-                        'input[id^="txtNote"]')
-
-                    // If order qty!= suggested order qty 
-                    // AND statuses are not firm, planned, or partial, 
-                    // then check the box and add a note
-                    for(var i=0;i<check.length;i++){{
-                    if (on_order_stat[i] != "Firm" && 
-                        on_order_stat[i] != "Partial" && 
-                        sug_order_stat[i] != "Firm" && 
-                        sug_order_stat[i] != "Planned" && 
-                        on_order_qty[i] != sug_order_qty[i]){{
-                    check[i].checked = true
-                    note[i].value = "MRP recommendation updated by "+
-                                    "{user_name} on {rel_date}"
-                    }}}}
-                    """.format(user_name=user_name,rel_date=rel_date)
-                    driver.execute_script(script)
-                    # 16. Create suggested forecast releases.
-                    #     (Click create button)
-                    # Switched to JS function to work while minimized
-                    # time.sleep(10000)
-                    driver.execute_script("Create_Releases();")
-                    # time.sleep(10000)
-            status.config(text=f"Process complete. {total_lines} total "
-                               f"releases across {num_parts} part numbers "
-                               f"updated.")
-            driver.quit()
         # Start in a thread so the GUI doesn't hang.
         # t = threading.Thread(target=do_release_update)
         t = threading.Thread(target=lambda:do_release_update_czech(user_name,
@@ -1061,7 +710,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     forecast_update = launch_pcn_dict[home_pcn]["forecast"]
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file, legacy_login=0, cumulus=0)
+                use_config=False, pcn_path=pcn_file)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     plex.frozen_check()
@@ -1075,10 +724,8 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     try:
         driver, url_comb, url_token = plex.login(headless=1)
         url_token = url_token
-    except SystemExit:
-        status.config(text="Username, Password, or "
-                        "Company code incorrect."
-                        " Please verify and try again.")
+    except LoginError as e:
+        status.config(text=e.message)
         tab_control.select(0)
         plex.driver.quit()
         return
@@ -1089,33 +736,51 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
     # 1. Group the CSV into lists based on PO and part combination
     #    Will group the file into arrays based on the first X columns.
     with open(file, 'r', encoding="utf-8") as fin:
+        # Adding initial check to validate the input file contains all data for all rows.
+        try:
+            dic_reader = csv.DictReader(fin)
+            error_parts = []
+            for row in dic_reader:
+                if any(val in (None, "") for val in row.values()):
+                    error_parts.append(row['Part'])
+            error_parts = list(set(error_parts))
+            if len(error_parts) > 0:
+                error_parts = '\n'.join(error_parts)
+                raise MissingInputData(f"Input file missing data for these parts:\n{error_parts}")
+        except MissingInputData as e:
+            status.config(text='Error: Missing data detected. Review input file.')
+            print(e)
+            showinfo(title="Missing data detected",message=e)
+            plex.driver.quit()
+            return
+        fin.seek(0)
         csv_reader = csv.reader(fin, delimiter=',')
+        # dic_reader = csv.DictReader(fin)
         for i, row in enumerate(csv_reader):
             if i == 0:
                 column_dict = {}
                 for x, i in enumerate(row):
                     column_dict[i] = x
-                    print(x, i)
-                print(column_dict)
+                #     print(x, i)
+                # print(column_dict)
             else:
                 part_po_grouping[row[0], row[1], row[2], row[3],
                                 row[4], row[5], row[6]].append(row[7:])
-        print(part_po_grouping)
+        # print(part_po_grouping)
         # 2. For each group, go to the PO line and perform actions
         for j, line in enumerate(part_po_grouping):
             # print(line[0], line[1], line[2], line[3], line[4])
             # pprint(part_po_grouping[line])
-            print(line)
+            # print(line)
             date_qty_set = []
             for x in part_po_grouping[line]:
                 if {"Release_Status"} <= column_dict.keys():
                     release_status = x[7]
-                    print(release_status)
+                    # print(release_status)
                 else:
                     release_status = "Firm"
                 date_qty_set.append(x[0:2]+[release_status])
                 part_no = x[3]
-                
                 # date_qty_set.insert(-1,release_status)
                 # date_qty_set.append(release_status)
             pcn_no = line[0] # pylint: disable=unused-variable
@@ -1125,10 +790,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             supplier_no = line[4]
             part_key = line[5]
             op_key = line[6] # pylint: disable=unused-variable
-
-            
             # pprint(date_qty_set)
-            # time.sleep(100000)
             num_parts = len(part_po_grouping)
             try:
                 status.config(text=f"Updating part {part_no}.    "
@@ -1142,7 +804,6 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
                     f'&Line_Item_Key={line_key}'
                     f'&Line_Item_No={line_no}'
                     f'&Print_Button_Pressed=False&ssAction=Same')
-            # time.sleep(10000)
             # 3a. Get list of release quantities
             script = """
             a =[]
@@ -1200,7 +861,6 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             # print('Current Releases')
             # pprint(release_list)
             # print('')
-            # time.sleep(100000)
             # 4. Separate out forecast releases
             forecasts =[line for i, line in enumerate(release_list)
                         if 'Forecast' in line]
@@ -1230,7 +890,6 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             # pprint(new_forecasts)
             # print('New original forecasts')
             # pprint(forecasts)
-            # time.sleep(100000)
             # 7. Clear all release info for forecast releases
             # 7a. Change status to firm
             script = """
@@ -1287,7 +946,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             for i, release in enumerate(date_qty_set):
                 if release[1] == '0':
                     continue
-                print(i, partials, release[1], release[0], release[2])
+                # print(i, partials, release[1], release[0], release[2])
                 # time.sleep(10000)
                 script = """
                 var qty = document.querySelectorAll(
@@ -1305,42 +964,6 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
                             new_stat=release[2])
                 driver.execute_script(script)
                 rel_index += 1
-            # time.sleep(10000)
-            # 6/28/21
-            # No longer keeping existing forecast releases
-            # # 10. find the last empty release line
-            # status_index = driver.find_elements_by_xpath(
-            #                     '//select[starts-with(@id, '
-            #                     '"lstRelease_Status")]')
-            # qtys = driver.find_elements_by_xpath(
-            #                         '//input[starts-with(@id, '
-            #                         '"txttxtQuantity")]')
-            # full_qty = [rel.get_attribute('value') for i, rel in 
-            #             enumerate(qtys)]
-            # empty_rel = [rel for i, rel in enumerate(qtys)
-            #             if rel.get_attribute('value') == '']
-            # status_qty = [list(a) for a in zip(status_index, full_qty)]
-            # # pprint(status_qty)
-            # forecast_index = [i for i, rel in enumerate(status_qty)
-            #                 if rel[1] == '']
-            # # pprint(forecast_index)
-            # # 11. Start populating the forecast release data using
-            # for i, rel in enumerate(empty_rel):
-            #     if i < len(new_forecasts):
-            #         script = """
-            #             var qty = document.querySelectorAll(
-            #                             'input[id^="txttxtQuantity"]');
-            #             var dates = document.querySelectorAll(
-            #                                'input[id^="txtDue_Date"]');
-            #             var stat = document.querySelectorAll(
-            #                         'select[id^="lstRelease_Status"]');
-            #             qty[{x}].value = {new_qty}
-            #             dates[{x}].value = "{new_date}"
-            #             stat[{x}].value = "Forecast"
-            #             """.format(x=forecast_index[i],
-            #                     new_qty=new_forecasts[i][1],
-            #                     new_date=new_forecasts[i][0])
-            #         driver.execute_script(script)
             # 12. Add notes for time and date that it was updated
             qtys = driver.find_elements(By.XPATH,
                                     '//input[starts-with(@id, '
@@ -1362,11 +985,9 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
                 note[{i}].value = "{update_note}"
                 """.format(i=i, update_note=update_note)
                 driver.execute_script(script)
-            # time.sleep(10000)
             # 13. Click update button
             # Changed to JS function to work when minimized
             driver.execute_script("FormSubmitStart('Update');")
-            # time.sleep(10000)
             # 14. Go to MRP recommendations
             # 14a. Czech is not doing forecasts.
             if not forecast_update:
@@ -1439,9 +1060,7 @@ def do_release_update_czech(user_name, password, company_code, db, home_pcn,
             # 16. Create suggested forecast releases.
             #     (Click create button)
             # Switched to JS function to work while minimized
-            # time.sleep(10000)
             driver.execute_script("Create_Releases();")
-            # time.sleep(10000)
     status.config(text=f"Process complete. {total_lines} total "
                         f"releases across {num_parts} part numbers "
                         f"updated.")
@@ -1856,7 +1475,7 @@ def plex_inventory_get(user_name, password, company_code, db, home_pcn,
     pcn = launch_pcn_dict[home_pcn]["pcn"]
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file, legacy_login=0)
+                use_config=False, pcn_path=pcn_file)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     plex.frozen_check()
@@ -1868,9 +1487,8 @@ def plex_inventory_get(user_name, password, company_code, db, home_pcn,
     try:
         driver, url_comb, url_token = plex.login(headless=1)
         url_token = url_token
-    except SystemExit:
-        status.config(text="Username, Password, or Company code "
-                        "incorrect. Please verify and try again.")
+    except LoginError as e:
+        status.config(text=e.message)
         tab_control.select(0)
         plex.driver.quit()
         return
@@ -2144,7 +1762,7 @@ def plex_customer_release_get(user_name, password, company_code, db, home_pcn,
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     # pcn = home_PCN      # enter pcn number
     plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file, legacy_login=0)
+                use_config=False, pcn_path=pcn_file)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     plex.frozen_check()
@@ -2159,9 +1777,8 @@ def plex_customer_release_get(user_name, password, company_code, db, home_pcn,
     try:
         driver, url_comb, url_token = plex.login(headless=1)
         url_token = url_token
-    except SystemExit:
-        status.config(text="Username, Password, or Company code "
-                        "incorrect. Please verify and try again.")
+    except LoginError as e:
+        status.config(text=e.message)
         tab_control.select(0)
         plex.driver.quit()
         return
@@ -3027,7 +2644,7 @@ def prp_get_api(authentication, db, home_pcn, input_file):
 def prp_get_plex(u, p, c, pcn, db, home_pcn, parts_file):
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     plex = Plex('UX', u, p, c, pcn, db=db, use_config=False,
-                pcn_path=pcn_file, cumulus=0)
+                pcn_path=pcn_file)
     plex.frozen_check()
     plex.download_chrome_driver(chromedriver_override)
     plex.config()
