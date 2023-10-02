@@ -166,7 +166,7 @@ __status__ = 'Production'
 # 10/31/2022 Updated PRP download to use data source calls
 # 2.3.8
 # 11/11/2022 Updated PCN values to reflect the change from Magnode to Shape - Aluminum
-# TODO Verify the pcn.json company name matches what Plex used.
+# DONE Verify the pcn.json company name matches what Plex used.
 # 2.3.9
 # 12/14/2022 Fixed issue with float release balances in the release cleanup
 #            Reverted change to PCN.json since the name has not changed yet
