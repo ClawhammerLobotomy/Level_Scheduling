@@ -62,7 +62,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.19'
+__version__ = '2.3.20'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -196,6 +196,8 @@ __status__ = 'Production'
 # 9/29/2023
 # Updated login functions to remove deprecated kwargs in Plex class
 # Updated login functions to use new LoginError class
+# 10/25/2023
+# Updated get_week_index call to use the class attributes.
 
 class MissingInputData(Exception):
     pass
@@ -2559,9 +2561,9 @@ def prp_get_api(authentication, db, home_pcn, input_file):
     df_1 = df_1.assign(Week_Index= lambda x :index)
     df_1 = df_1.assign(Week_Start= lambda x :group_start_date)
     df_1['Week_Index'] = df_1.apply(lambda p: ux.get_week_index(
-                         p['Due_Date'],-1)[1], axis=1).astype(str)
+                         p['Due_Date'],-1).week_index, axis=1).astype(str)
     df_1['Week_Start'] = df_1.apply(lambda p: ux.get_week_index(
-                         p['Due_Date'],-1)[0], axis=1)
+                         p['Due_Date'],-1).formatted_date, axis=1)
     # df_1.to_csv('prp_group_test.csv', index=0)
     df_g = df_1.groupby(by=['Component_Part_No_Rev',
                             'Week_Index',
