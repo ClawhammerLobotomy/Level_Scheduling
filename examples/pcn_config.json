@@ -1,0 +1,18 @@
+{
+    "PCN 1 - Friendly Name":{
+        "pcn":"PCN Number",
+        "prefix": "Filename prefix",
+        "api_user": "USERNAME@plex.com",
+        "api_pass": "PASSWORD",
+        "forecast": 1,
+        "default_week_no": "1"
+    },
+    "PCN 2 - Friendly Name":{
+        "pcn":"PCN Number",
+        "prefix":"Filename prefix",
+        "api_user": "USERNAME@plex.com",
+        "api_pass": "PASSWORD",
+        "forecast": 0,
+        "default_week_no": "2"
+    }
+}
