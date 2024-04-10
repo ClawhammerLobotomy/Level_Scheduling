@@ -1,5 +1,48 @@
 # Change Log
 
+## [2.3.21] - 2024-4-10
+
+### Added
+
+Added debug command line flag. -d, --debug
+
+Added debug printing throughout.
+
+Added headless command line flag. --headless
+
+Added show/hide password toggle.
+
+### Changed
+
+Changed `prp_get_api` to use a dynamic start date of 365 days before current date.  
+Runs were taking forever to process with the static date of 2001.
+
+Changed import of tkinter to not import everything.  
+Prefixed all tkinter variables and functions with `tk.`
+
+Changed name of function `do_update_release_czech()` to `do_update_release()` to avoid confusion with errors.
+
+Changed name of function `api_inventory_download_v2()` to `api_inventory_download`.
+
+Changed name of function `api_customer_release_get_v2()` to `api_customer_release_get`.
+
+Changed pyinstaller path to use Python311 from Python310 in compile.bat
+
+Fixed prp_get_api() function to skip parts which do not return a part_key. If the part is obsolete it does not return a key value from data source 9094.
+
+### Removed
+
+Removed dead, commented code.
+
+Removed unused functions.
+* prp_get_plex()
+* api_inventory_download()
+* plex_inventory_get()
+* api_customer_release_get()
+* plex_customer_release_get()
+
+Cleaned up unused imports
+
 ## [2.3.20] - 2023-09-29
 
 ### Changed
