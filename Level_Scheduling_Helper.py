@@ -604,6 +604,7 @@ def releases(user_name, password, company_code, db, home_pcn, input_file):
                              password, company_code, db, home_pcn,input_file))
         t.start()
         status.config(text="Updating releases.")
+        debug_print("Updating releases.")
         file_selector.config(text=selector_text, anchor=tk.W)
         button_start.config(state=tk.DISABLED)
 
@@ -659,6 +660,8 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
                 raise MissingInputData(f"Input file missing data for these parts:\n{error_parts}")
         except MissingInputData as e:
             status.config(text='Error: Missing data detected. Review input file.')
+            debug_print('Error: Missing data detected. Review input file.')
+            debug_print(e)
             print(e)
             showinfo(title="Missing data detected",message=e)
             plex.driver.quit()
@@ -679,7 +682,7 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
         # print(part_po_grouping)
         # 2. For each group, go to the PO line and perform actions
         for j, line in enumerate(part_po_grouping):
-            debug_print(f"Part line details: {line[0]}, {line[1]}, {line[2]}, {line[3]}, {line[4]}")
+            debug_print(f"Part line key details: {line}")
             # pprint(part_po_grouping[line])
             # print(line)
             date_qty_set = []
@@ -703,8 +706,9 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
             # pprint(date_qty_set)
             num_parts = len(part_po_grouping)
             try:
-                status.config(text=f"Updating part {part_no}.    "
-                                    f"[{j + 1}/{num_parts}]")
+                status_text = f"Updating part {part_no}.    [{j + 1}/{num_parts}]"
+                status.config(text=status_text)
+                debug_print(status_text)
             except RuntimeError:
                 driver.quit()
             driver.get(f'{url_comb}/Purchasing/Line_Item_Form.asp?'
@@ -784,14 +788,14 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
                 for j, x in enumerate(date_qty_set): # pylint: disable=unused-variable
                     # print('Forecast to compare')
                     # print(line)
-                    debug_print(f"Forecast to compare: {line}")
+                    # debug_print(f"Forecast to compare: {line}")
                     # print('Firm to compare')
                     # print(x)
-                    debug_print(F"Firm to compare: {x}")
+                    # debug_print(F"Firm to compare: {x}")
                     if datetime.strptime(line[0], '%m/%d/%y') <=\
                             datetime.strptime(x[0], '%m/%d/%Y'):
                         # print(line[0], '<=', x[0])
-                        debug_print(F"Forecast date before firm date.")
+                        debug_print(f"Forecast date {line[0]} before firm date {x[0]}.")
                         # 6. Remove forecasts if they are before any
                         #    date in the csv list
                         cut_index += 1
@@ -894,14 +898,15 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
             full_note = [rel for i, rel in enumerate(notes)]
             full_note = full_note[:len(full_qty)]
             now = datetime.now()
-            rel_date = now.strftime("%m/%d/%y %I:%M:%S %p")
-            update_note = f'Updated by {user_name} on {rel_date}'
+            current_date = now.strftime("%m/%d/%y %I:%M:%S %p")
+            mps_update_note = f'Updated by {user_name} on {current_date}'
+            debug_print(f'Update note for MPS releases: {mps_update_note}')
             for i, rel in enumerate(full_note):
                 script = """
                 var note = document.querySelectorAll(
                                         'input[id^="txtRelease_Note"]');
-                note[{i}].value = "{update_note}"
-                """.format(i=i, update_note=update_note)
+                note[{i}].value = "{mps_update_note}"
+                """.format(i=i, mps_update_note=mps_update_note)
                 driver.execute_script(script)
             # 13. Click update button
             # Changed to JS function to work when minimized
@@ -917,6 +922,8 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
                     f'&Part_Operation_Key={op_key}')
             # 15. Get lists of relevant elements on screen
             # 15a. Get checkboxes
+            debug_print("Navigated to MRP Recommendations screen.")
+            mrp_update_note = f"MRP recommendation updated by {user_name} on {current_date}"
             script = """
             // Grab all checkbox elements
             var check = document.querySelectorAll(
@@ -962,6 +969,7 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
             // If order qty!= suggested order qty 
             // AND statuses are not firm, planned, or partial, 
             // then check the box and add a note
+            var mrp_forecast_count = 0
             for(var i=0;i<check.length;i++){{
             if (on_order_stat[i] != "Firm" && 
                 on_order_stat[i] != "Partial" && 
@@ -970,18 +978,22 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
                 on_order_qty[i] != sug_order_qty[i]){{
             po_no[i].value = "{line_key}"
             check[i].checked = true
-            note[i].value = "MRP recommendation updated by "+
-                            "{user_name} on {rel_date}"
+            note[i].value = "{mrp_update_note}"
+            mrp_forecast_count++
             }}}}
-            """.format(user_name=user_name,rel_date=rel_date,line_key=line_key)
-            driver.execute_script(script)
+            return mrp_forecast_count
+            """.format(mrp_update_note=mrp_update_note,line_key=line_key)
+            mrp_forecast_count = driver.execute_script(script)
+            debug_print(f"Update note for MRP recommendations: {mrp_update_note}")
+            debug_print(f"Checked all {mrp_forecast_count} recommended forecast releases.")
             # 16. Create suggested forecast releases.
             #     (Click create button)
             # Switched to JS function to work while minimized
             driver.execute_script("Create_Releases();")
-    status.config(text=f"Process complete. {total_lines} total "
-                        f"releases across {num_parts} part numbers "
-                        f"updated.")
+            debug_print(f"'Create_Releases' function executed.")
+    status_text = f"Process complete. {total_lines} total releases across {num_parts} part numbers updated."
+    status.config(text=status_text)
+    debug_print(status_text)
     driver.quit()
 
 
@@ -1007,6 +1019,7 @@ def subcon_inventory(user_name, password, company_code, db, home_pcn,
         t = threading.Thread(target=function_target)
         t.start()
         status.config(text="Getting inventory numbers.")
+        debug_print("Getting inventory numbers.")
         inv_selector.config(text=selector_text, anchor=tk.W)
         inv_button_start.config(state=tk.DISABLED)
 
@@ -1090,6 +1103,7 @@ def api_inventory_download(authentication, db, home_pcn, input_file):
                     progress_text = f'Getting large inventory for {part_no}    '\
                                     f'[{i+1}/{total_parts}]'
                     status.config(text=progress_text)
+                    debug_print(progress_text)
                     query = {
                         'inputs':{
                             'Include_Containers': False,
@@ -1123,6 +1137,7 @@ def api_inventory_download(authentication, db, home_pcn, input_file):
     if df_1.empty:
         status.config(text=
                     f"No inventory for provided part numbers.")
+        debug_print(f"No inventory for provided part numbers.")
         return
     df_1.columns = json_data['tables'][0]['columns']
     df_1 = df_1.merge(status_df,on='Container_Status')
@@ -1180,10 +1195,9 @@ def api_inventory_download(authentication, db, home_pcn, input_file):
                                             index=False)
             df_4_final[['Part_No','Inventory']].to_csv(inventory_file,
                                             index=False)
-            status.config(text=f'{input_parts} provided, {inventory_parts} '
-                        f'parts downloaded. Files saved to '
-                        f'{source_dir} as {file_prefix}inventory.csv '
-                        f'and {file_prefix}subcon_inventory.csv')
+            status_text = f'{input_parts} provided, {inventory_parts} parts downloaded. Files saved to {source_dir} as {file_prefix}inventory.csv and {file_prefix}subcon_inventory.csv'
+            status.config(text=status_text)
+            debug_print(status_text)
             break
         except PermissionError:
             if askokcancel('File In Use', f'Please close the file '
@@ -1192,6 +1206,7 @@ def api_inventory_download(authentication, db, home_pcn, input_file):
                 continue
             else:
                 status.config(text="Inventory download cancelled by user.")
+                debug_print("Inventory download cancelled by user.")
                 break
 
 
@@ -1216,6 +1231,7 @@ def cust_rel(user_name, password, company_code, db, home_pcn, input_file):
         t = threading.Thread(target=function_target)
         t.start()
         status.config(text="Getting customer releases.")
+        debug_print("Getting customer releases.")
         cust_selector.config(text=selector_text, anchor=tk.W)
         cust_button_start.config(state=tk.DISABLED)
 
@@ -1263,6 +1279,7 @@ def api_customer_release_get(authentication, db, home_pcn, input_file):
             debug_print(f"Next: {df_1}")
     if df_1.empty:
         status.config(text=f"No releases for provided part numbers.")
+        debug_print(f"No releases for provided part numbers.")
         return
     df_1.columns = json_data['tables'][0]['columns']
     # Added exclusion for "Audit" operation types. This may cause issues with
@@ -1374,6 +1391,7 @@ def api_customer_release_get(authentication, db, home_pcn, input_file):
             df_3.to_csv(release_file, index=False)
             status.config(text=
                     f"Releases retrieved. File saved to {release_file}")
+            debug_print(f"Releases retrieved. File saved to {release_file}")
             break
         except PermissionError:
             if askokcancel('File In Use', f'Please close the file '
@@ -1381,6 +1399,7 @@ def api_customer_release_get(authentication, db, home_pcn, input_file):
                 continue
             else:
                 status.config(text="Release download cancelled by user.")
+                debug_print("Release download cancelled by user.")
                 break
 
 
@@ -1411,6 +1430,7 @@ def mrp(user_name, password, company_code, db, home_pcn, input_file):
                                 home_pcn, input_file))
         t.start()
         status.config(text="Getting MRP demand.")
+        debug_print("Getting MRP demand")
         mrp_selector.config(text=selector_text, anchor=tk.W)
         mrp_button_start.config(state=tk.DISABLED)
 
@@ -1460,6 +1480,7 @@ def mrp_get(authentication, db, home_pcn, input_file):
     if df_1.empty:
         status.config(text=
                     f"No demand for provided part numbers.")
+        debug_print(f"No demand for provided part numbers.")
         return
     df_1.columns = json_data['tables'][0]['columns']
     df_1['Sales_Requirements'] = round(
@@ -1470,8 +1491,9 @@ def mrp_get(authentication, db, home_pcn, input_file):
         try:
             df_1[['Part_No_Revision','Sales_Requirements']].to_csv(
                 mrp_file, index=False)
-            status.config(text=
-                    f"MRP demand retrieved. File saved to {mrp_file}")
+            status_text = f"MRP demand retrieved. File saved to {mrp_file}"
+            status.config(text=status_text)
+            debug_print(status_text)
             break
         except PermissionError:
             if askokcancel('File In Use', f'Please close the file '
@@ -1479,6 +1501,7 @@ def mrp_get(authentication, db, home_pcn, input_file):
                 continue
             else:
                 status.config(text="MRP download cancelled by user.")
+                debug_print("MRP download cancelled by user.")
                 break
 
 
@@ -1509,6 +1532,7 @@ def prp(user_name, password, company_code, db, home_pcn, input_file):
                              db, home_pcn, input_file))
         t.start()
         status.config(text="Getting PRP demand.")
+        debug_print("Getting PRP demand.")
         prp_selector.config(text=selector_text, anchor=tk.W)
         prp_button_start.config(state=tk.DISABLED)
 
@@ -1628,6 +1652,7 @@ def prp_get_api(authentication, db, home_pcn, input_file):
     if df_1.empty:
         status.config(text=
                     f"No demand for provided part numbers.")
+        debug_print(f"No demand for provided part numbers.")
         return
 
     df_r.sort_values(by=['Lookup'], inplace=True)
@@ -1636,8 +1661,9 @@ def prp_get_api(authentication, db, home_pcn, input_file):
     while True:
         try:
             df_r.to_csv(prp_file, index=False)
-            status.config(text=
-                    f"PRP demand retrieved. File saved to {prp_file}")
+            status_text = f"PRP demand retrieved. File saved to {prp_file}"
+            status.config(text=status_text)
+            debug_print(status_text)
             break
         except PermissionError:
             if askokcancel('File In Use', f'Please close the file '
@@ -1645,6 +1671,7 @@ def prp_get_api(authentication, db, home_pcn, input_file):
                 continue
             else:
                 status.config(text="PRP download cancelled by user.")
+                debug_print("PRP download cancelled by user.")
                 break
 
 

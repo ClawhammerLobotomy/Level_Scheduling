@@ -1,5 +1,15 @@
 # Change Log
 
+## [2.3.21] - 2024-4-15
+
+### Added
+
+Added more debug printing.
+
+### Changed
+
+Changed `do_release_update()` function to return `mrp_forecast_count` variable count of MRP recommendations for debugging.
+
 ## [2.3.21] - 2024-4-10
 
 ### Added
