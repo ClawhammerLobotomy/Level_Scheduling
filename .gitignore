@@ -129,16 +129,16 @@ dmypy.json
 .pyre/
 
 # These are downloaded on the fly
-resources/chrome*
-resources/cumulus*
-resources/config*
-resources/LICENSE.chromedriver
+src/resources/chrome*
+src/resources/cumulus*
+src/resources/config*
+src/resources/LICENSE.chromedriver
 
 # Troubleshooting files
 troubleshooting/
 
 # This stores your connection credentials
-resources/pcn_config.json
+src/resources/pcn_config.json
 
 *.lnk
 .vscode/
