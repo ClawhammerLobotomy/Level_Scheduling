@@ -137,6 +137,7 @@ resources/config*
 src/resources/config*
 resources/LICENSE.chromedriver
 src/resources/LICENSE.chromedriver
+resources/driver_version.txt
 
 # Troubleshooting files
 troubleshooting/

@@ -1,5 +1,11 @@
 # Change Log
 
+## [2.4.0] - 2024-8-8
+
+### Changed
+
+Updated login module to support new Rockwell login process.
+
 ## [2.3.21] - 2024-4-15
 
 ### Added

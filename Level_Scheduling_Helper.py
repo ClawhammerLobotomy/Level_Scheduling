@@ -11,7 +11,7 @@ def debug_print(message):
         print(f'{datetime.now()} - DEBUG - {message}',file=open(log_file,'a'))
 debug_print(f"Initial print command. Before any imports besides datetime and argparse modules.")
 
-from plex_login_ux import Plex, LoginError
+from plex_login_ux import PlexAutomate, LoginError
 import ux_data_source_tools as UDST
 
 from requests.auth import HTTPBasicAuth
@@ -58,7 +58,7 @@ __author__ = 'Dan Sleeman'
 __copyright__ = 'Copyright 2020, Level Scheduling Assistant'
 __credits__ = ['Dan Sleeman']
 __license__ = 'GPL-3'
-__version__ = '2.3.21'
+__version__ = '2.4.0'
 __maintainer__ = 'Dan Sleeman'
 __email__ = 'sleemand@shapecorp.com'
 __status__ = 'Production'
@@ -615,8 +615,8 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
     pcn = launch_pcn_dict[home_pcn]["pcn"]
     file_prefix = launch_pcn_dict[home_pcn]["prefix"]
     forecast_update = launch_pcn_dict[home_pcn]["forecast"]
-    plex = Plex('classic', user_name, password, company_code, pcn, db=db,
-                use_config=False, pcn_path=pcn_file, chromedriver_override=chromedriver_override)
+    plex = PlexAutomate('classic',debug=args.debug, db=db,
+                pcn_file_path=pcn_file)
     # Get the directory that script is running in
     # bundle_dir = plex.frozen_check()
     # plex.frozen_check()
@@ -628,7 +628,7 @@ def do_release_update(user_name, password, company_code, db, home_pcn,
     # Call the login function and return the chromedriver instance 
     #   and base URL used in the rest of the script
     try:
-        driver, url_comb, url_token = plex.login(headless=args.headless)
+        driver, url_comb, url_token = plex.login(user_name,password,company_code,pcn,db,headless=args.headless)
         url_token = url_token
     except LoginError as e:
         debug_print(f'Login error.')
